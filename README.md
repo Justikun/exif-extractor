@@ -47,4 +47,4 @@ The most significant byte is stored first, at the lowest memory address.
 
 - TIFF/EXIF: Little-endian or big-endian, based on header.
 - GIF/BMP/WebP: Little-endian.
-- PNG/JFIF/AVIF: Big-endian.
+- JPG/PNG/JFIF/AVIF: Big-endian.
