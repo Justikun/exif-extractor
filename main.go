@@ -1,25 +1,25 @@
 package main
 
 import (
+	"exif-extractor/markers"
 	"bytes"
 	"fmt"
 	"log"
 	"os"
+	"errors"
 )
 
 func main() {
 //	testingBytes()
 //	getExifData()
 
-
 	getImgData("test-image.jpeg")
 }
-
 
 func getImgData(imgPath string) {
 	file, err := os.Open(imgPath)
 	if err != nil {
-		log.Fatal("error: %v, is NOT a valid image path", imgPath)
+		log.Fatalf("error: %v, is NOT a valid image path", imgPath)
 	}
 	defer file.Close()
 
@@ -30,17 +30,32 @@ func getImgData(imgPath string) {
 		log.Fatal("error reading chunk")
 	}
 
-	reader := bytes.NewReader(chunk[:])
+	chunkReader := bytes.NewReader(chunk[:])
 
-	// check 0xFFD8 - JPG - SOI (start of image)
-	header := make([]byte, 2)
-	_, err = reader.Read(header)
+ 	checkMarker(chunkReader, markers.SOIMarker)
+ 	checkMarker(chunkReader, markers.App0Marker)
+	// TODO: check data
+	checkMarker(chunkReader, markers.App1Marker)
+	// TODO: check data
+
+	dataPayload := make([]byte, 2)
+	_, err = chunkReader.Read(dataPayload)
 	if err != nil {
-		log.Fatal("error reading header")
+		log.Fatal("Unable to read app0 data pay load")
 	}
-	if header[0] != 0xFF && header[1] != 0xD8 {
-		log.Fatal("file is not JPG")
+}
+
+func checkMarker(chunk *bytes.Reader, m markers.Marker) error {
+	b := make([]byte, 2)
+	_, err := chunk.Read(b)
+	if err != nil {
+		return errors.New("could not read chunk")
 	}
-	fmt.Printf("%x\n", header[0])
-	fmt.Printf("%x\n", header[1])
+
+	if b[0] != m.First || b[1] != m.Second {
+		return fmt.Errorf("Marker: %v not found", m.Name)
+	}
+	fmt.Printf("Marker: %v found\n", m.Name)
+
+	return nil
 }
