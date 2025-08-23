@@ -1,55 +1,28 @@
 package metadata
 
 import (
+	//"bytes"
 	"encoding/binary"
 	"fmt"
 	"io"
 )
 
-func GetDataTypeFromBytes(b []byte, byteOrder binary.ByteOrder) (DataType, error) {
-	dataValue := int(byteOrder.Uint16(b))
 
-	switch DataType(dataValue) { // Cast the int to DataType for the switch
-	case TypeByte:
-		return TypeByte, nil
-	case TypeAscii:
-		return TypeAscii, nil
-	case TypeShort:
-		return TypeShort, nil
-	case TypeLong:
-		return TypeLong, nil
-	case TypeRational:
-		return TypeRational, nil
-	case TypeSByte:
-		return TypeSByte, nil
-	case TypeUndefined:
-		return TypeUndefined, nil
-	case TypeSShort:
-		return TypeSShort, nil
-	case TypeSLong:
-		return TypeSLong, nil
-	case TypeSRational:
-		return TypeSRational, nil
-	case TypeFloat:
-		return TypeFloat, nil
-	case TypeDouble:
-		return TypeDouble, nil
-	default:
-		return 0, fmt.Errorf("Failed to GetDataTypeBytes. Unknown data type value: %d", dataValue)
-	}
-}
+func DecodeTagDataBytes(dataBytes []byte, dt DataType, count uint32, order binary.ByteOrder) (any, error) {
+	//sliceReader := bytes.NewReader(dataBytes)
+	//binaryReader := NewBinaryReader(sliceReader, order)
 
-func DecodeTagByteData(data []byte, endian binary.ByteOrder) {
+	//switch data
+	return 0, fmt.Errorf("")
 
 }
-
 
 type BinaryReader struct {
-	r io.Reader
-	byteOrder binary.ByteOrder
+	r 			io.ReadSeeker
+	byteOrder 	binary.ByteOrder
 }
 
-func NewBinaryReader(r io.Reader, order binary.ByteOrder) *BinaryReader{
+func NewBinaryReader(r io.ReadSeeker, order binary.ByteOrder) *BinaryReader{
 	return &BinaryReader{r: r, byteOrder: order}
 }
 
@@ -71,6 +44,10 @@ func (br *BinaryReader) ReadBytes(count int) ([]byte, error) {
 		return []byte{}, fmt.Errorf("Read %d bytes. Expected %d bytes", n, count)
 	}
 	return buf, err
+}
+
+func (br *BinaryReader) Seek(offset int64, whence int) (int64, error) {
+	return br.r.Seek(offset, whence)
 }
 
 func (br *BinaryReader) SkipBytes(count int) error {

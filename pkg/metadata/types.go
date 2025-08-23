@@ -2,6 +2,7 @@ package metadata
 
 import (
 	"fmt"
+	"encoding/binary"
 )
 
 type ImageData struct {
@@ -60,7 +61,73 @@ const (
 	TypeDouble    DataType = 12 // 64-bit IEEE floating point
 )
 
-var TypeSize = map[DataType]uint32 {
+func GetDataTypeString(b []byte, byteOrder binary.ByteOrder) (string, error) {
+	dataValue := int(byteOrder.Uint16(b))
+
+	switch DataType(dataValue) {
+	case TypeByte:
+		return "Byte", nil
+	case TypeAscii:
+		return "Ascii", nil
+	case TypeShort:
+		return "Short", nil
+	case TypeLong:
+		return "Long", nil
+	case TypeRational:
+		return "Rational", nil
+	case TypeSByte:
+		return "SByte", nil
+	case TypeUndefined:
+		return "Undefined", nil
+	case TypeSShort:
+		return "SShort", nil
+	case TypeSLong:
+		return "SLong", nil
+	case TypeSRational:
+		return "SRational", nil
+	case TypeFloat:
+		return "Float", nil
+	case TypeDouble:
+		return "Double", nil
+	default:
+		return "", fmt.Errorf("Failed to get data type string. Unknown data type value: %d", dataValue)
+	}
+}
+
+func GetDataType(b []byte, byteOrder binary.ByteOrder) (DataType, error) {
+	dataValue := int(byteOrder.Uint16(b))
+
+	switch DataType(dataValue) { // Cast the int to DataType for the switch
+	case TypeByte:
+		return TypeByte, nil
+	case TypeAscii:
+		return TypeAscii, nil
+	case TypeShort:
+		return TypeShort, nil
+	case TypeLong:
+		return TypeLong, nil
+	case TypeRational:
+		return TypeRational, nil
+	case TypeSByte:
+		return TypeSByte, nil
+	case TypeUndefined:
+		return TypeUndefined, nil
+	case TypeSShort:
+		return TypeSShort, nil
+	case TypeSLong:
+		return TypeSLong, nil
+	case TypeSRational:
+		return TypeSRational, nil
+	case TypeFloat:
+		return TypeFloat, nil
+	case TypeDouble:
+		return TypeDouble, nil
+	default:
+		return 0, fmt.Errorf("Failed to GetDataTypeBytes. Unknown data type value: %d", dataValue)
+	}
+}
+
+var typeSize = map[DataType]int {
 	TypeByte:      1,
 	TypeAscii:     1,
 	TypeShort:     2,
@@ -73,6 +140,13 @@ var TypeSize = map[DataType]uint32 {
 	TypeSRational: 8,
 	TypeFloat:     4,
 	TypeDouble:    8,
+}
+
+func (dt DataType) GetDataTypeByteSize() (int, error) {
+	if size, ok := typeSize[dt]; ok {
+		return size, nil
+	}
+	return 0, fmt.Errorf("%x, DataType not found", dt)
 }
 
 func (dt DataType) GetDataTypeString() (string, error) {

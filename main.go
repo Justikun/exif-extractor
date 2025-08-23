@@ -184,14 +184,14 @@ func parseAPP0(file *os.File, imgData *metadata.ImageData) error {
 
 
 func parseAPP1(file *os.File, imgData *metadata.ImageData) error {
-	// read payload size
+	// check APP1 payload size
 	buff := make([]byte, 2)
 	_, err := io.ReadFull(file, buff)
 	if err != nil {
 		return err
 	}
 
-	// read entire APP1 and advance main file app1Reader
+	// read entire APP1 and advance main file reader
 	payloadSize := binary.BigEndian.Uint16(buff)
 	app1Data := make([]byte, payloadSize-2)
 	file.Read(app1Data)
@@ -239,6 +239,9 @@ func parseAPP1(file *os.File, imgData *metadata.ImageData) error {
 		return errors.New("Endianess not found")
 	}
 
+	// wrap app1Reader into BinaryReader
+	br := metadata.NewBinaryReader(app1Reader, endian)
+
 	// check version - TIFF magic number 42
 	versionNumber := endian.Uint16(tiffHeader[2:4])
 	if versionNumber != 42 {
@@ -249,17 +252,18 @@ func parseAPP1(file *os.File, imgData *metadata.ImageData) error {
 	if _, err = file.Seek(int64(ifdOffset), io.SeekStart); err != nil {
 		return fmt.Errorf("failed to seek to offset %d: %v", ifdOffset, err)
 	}
-	err = parseIFD(app1Reader, tiffHeaderStart, metadata.IFDMAIN, endian)
+	err = parseIFD(br, tiffHeaderStart, metadata.IFDMAIN, endian)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func parseIFD(app1Reader *bytes.Reader, tiffHeaderStart int64, ifdType metadata.IFDType, endian binary.ByteOrder) error {
+func parseIFD(br *metadata.BinaryReader, tiffHeaderStart int64, ifdType metadata.IFDType, endian binary.ByteOrder) error {
+	// wrap reader in custom reader
+	//TODO
 	// count of tags
-	tagInBytes:= make([]byte, 2)
-	_, err := app1Reader.Read(tagInBytes)
+	tagInBytes, err := br.ReadBytes(2)
 	if err != nil {
 		return err
 	}
@@ -268,8 +272,7 @@ func parseIFD(app1Reader *bytes.Reader, tiffHeaderStart int64, ifdType metadata.
 	for i := 0; i < tagCount; i++ {
 		tag := metadata.IFDTag{}
 		// set id
-		idInBytes := make([]byte, 2)
-		_, err = app1Reader.Read(idInBytes)
+		idInBytes, err := br.ReadBytes(2)
 		if err != nil {
 			return err
 		}
@@ -280,22 +283,20 @@ func parseIFD(app1Reader *bytes.Reader, tiffHeaderStart int64, ifdType metadata.
 		tag.Name = tagName
 
 		// set data type
-		dataTypeB := make([]byte, 2)
-		_, err = app1Reader.Read(dataTypeB)
+		dataTypeB, err := br.ReadBytes(2)
 		if err != nil {
 			return fmt.Errorf("Failed to read dataTypeB\n")
 		}
-		dataType, err := metadata.GetDataTypeFromBytes(dataTypeB, endian)
+		dataType, err := metadata.GetDataType(dataTypeB, endian)
 		if err != nil {
 			return err
 		}
 		tag.DataType = dataType
 
 		// set count of data
-		countDataInBytes := make([]byte, 4)
-		_, err = app1Reader.Read(countDataInBytes)
+		countDataInBytes, err :=  br.ReadBytes(4)
 		if err != nil {
-			return fmt.Errorf("Failed to read count buff\n")
+			return fmt.Errorf("Failed to read count of data in bytes\n")
 		}
 		tagCount := endian.Uint32(countDataInBytes)
 		tag.Count = tagCount
@@ -307,37 +308,39 @@ func parseIFD(app1Reader *bytes.Reader, tiffHeaderStart int64, ifdType metadata.
 		}
 		totalTagSize := dataTypeSize * int(tagCount)
 
-		dataOrOffset := make([]byte, 4)
-		_, err = app1Reader.Read(dataOrOffset)
+		dataOrOffset, err := br.ReadBytes(4)
+		if err != nil {
+			return fmt.Errorf("Failed to read dataOrOffset")
+		}
 
 		if totalTagSize > 4 {
-			fmt.Printf("Data > 4 bytes")
-			// get offset and save current pos
+			fmt.Printf("Data > 4 bytes\n")
+			// save current pos
 			offset := endian.Uint32(dataOrOffset)
-			currentPos, err := app1Reader.Seek(0, io.SeekCurrent)
+			currentPos, err := br.Seek(0, io.SeekCurrent)
 			if err != nil {
 				return fmt.Errorf("Failed to save current position\n")
 			}
-			_, err = app1Reader.Seek(int64(offset), io.SeekStart)
+			// jump to offset
+			_, err = br.Seek(int64(offset), io.SeekStart)
 			if err != nil {
 				return fmt.Errorf("Failed to seek to app1 data tag offset\n")
 			}
 			// Read the data in bytes
-			dataInBytes := make([]byte, totalTagSize)
-			_, err = app1Reader.Read(dataInBytes)
+			dataInBytes, err := br.ReadBytes(totalTagSize)
 			if err != nil {
 				fmt.Printf("total Tag size: %v\n", totalTagSize)
 				return fmt.Errorf("Failed to read dataInBytes\n")
 			}
 			// Parse data
 			// TODO
-			// Parse the data based on the data type. Probably set up a helper function
 			fmt.Printf("count: %d, size: %d", tagCount, totalTagSize)
-			fmt.Printf("Parsing data at offset: ")
-			metadata.DecodeTagByteData(dataInBytes, endian)
+			fmt.Printf(" Parsing data at offset: \n")
+			fmt.Printf(string(dataInBytes))
+			//metadata.DecodeTagByteData(dataInBytes, endian)
 
 			// set reader back to original pos
-	 		app1Reader.Seek(currentPos, io.SeekStart)
+	 		br.Seek(currentPos, io.SeekStart)
 		} else {
 			// next 4 bytes holds data
 			fmt.Printf("Data < 4 bytes")
@@ -350,7 +353,7 @@ func parseIFD(app1Reader *bytes.Reader, tiffHeaderStart int64, ifdType metadata.
 			return err
 		}
 
-		fmt.Printf("id: %v, name: %v, dataType: %v, dataValue: %s\n", tag.Id, tag.Name, dataTypeString, tag.Data)
+		fmt.Printf("id: %v, name: %v, dataType: %v, dataValue: %s\n\n", tag.Id, tag.Name, dataTypeString, tag.Data)
 		/////////END OF DEBUG////////////
 
 		// parse and set value
