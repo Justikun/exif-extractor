@@ -9,19 +9,59 @@ import (
 	"log"
 	"os"
 	"github.com/justikun/metadata-viewer/pkg/metadata"
+	"path/filepath"
+	"strings"
 )
 
 func main() {
 	//photos := [3]string{"test-photos/test-image-1.jpeg", "test-photos/test-image-2.tiff", "test-photos/test-image-3"}
 
-	imagesData := []metadata.ImageData{}
-
-	img, err := parseImgData("test-photos/test-image-1.jpeg")
+	images, err := GetImageFiles("test-photos")
 	if err != nil {
 		fmt.Println(err)
 	}
-	imagesData[0] = img
-	print(imagesData[0].ImagePath)
+
+	for _, image := range images {
+		images, err := parseImgData(image.ImagePath)
+		if err != nil {
+			fmt.Printf("Failed to parse image at %s", images.ImagePath)
+		}
+	}
+
+	print(images[0].ImagePath)
+}
+
+func GetImageFiles(dirPath string) ([]metadata.ImageData, error) {
+	var imageFiles []metadata.ImageData
+
+	allowedExtensions := map[string]struct{} {
+		".jpg": {},
+		".jpeg": {},
+		".png": {},
+		".tiff": {},
+		".tif": {},
+		".webp": {},
+	}
+
+	entries, err := os.ReadDir(dirPath)
+	if err != nil {
+		return []metadata.ImageData{}, fmt.Errorf("Failed to read directory %s: %w", dirPath, err)
+	}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		fileName := entry.Name()
+		ext := strings.ToLower(filepath.Ext(fileName))
+		_, ok := allowedExtensions[ext]
+		if ok {
+			// construct absolute path
+			absPath := filepath.Join(dirPath, fileName)
+			image := metadata.ImageData{ImagePath: absPath, MetaData: metadata.MetaData{}}
+	 		imageFiles = append(imageFiles, image)
+		}
+	}
+	return imageFiles, nil
 }
 
 func parseImgData(imgPath string) (metadata.ImageData, error) {
@@ -292,6 +332,7 @@ func parseIFD(app1Reader *bytes.Reader, tiffHeaderStart int64, ifdType metadata.
 			// Parse data
 			// TODO
 			// Parse the data based on the data type. Probably set up a helper function
+			fmt.Printf("count: %d, size: %d", tagCount, totalTagSize)
 			fmt.Printf("Parsing data at offset: ")
 			metadata.DecodeTagByteData(dataInBytes, endian)
 
