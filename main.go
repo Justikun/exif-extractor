@@ -8,13 +8,13 @@ import (
 	"io"
 	"log"
 	"os"
-	"github.com/justikun/exif-extractor/image_data"
+	"github.com/justikun/metadata-viewer/pkg/metadata"
 )
 
 func main() {
 	//photos := [3]string{"test-photos/test-image-1.jpeg", "test-photos/test-image-2.tiff", "test-photos/test-image-3"}
 
-	imagesData := []image_data.ImageData{}
+	imagesData := []metadata.ImageData{}
 
 	img, err := parseImgData("test-photos/test-image-1.jpeg")
 	if err != nil {
@@ -24,8 +24,8 @@ func main() {
 	print(imagesData[0].ImagePath)
 }
 
-func parseImgData(imgPath string) (image_data.ImageData, error) {
-	imgData := image_data.ImageData{}
+func parseImgData(imgPath string) (metadata.ImageData, error) {
+	imgData := metadata.ImageData{}
 
 	file, err := os.Open(imgPath)
 	if err != nil {
@@ -73,7 +73,7 @@ func parseImgData(imgPath string) (image_data.ImageData, error) {
 }
 
 // TODO Find a way to store the data.
-func parseAPP0(file *os.File, imgData *image_data.ImageData) error {
+func parseAPP0(file *os.File, imgData *metadata.ImageData) error {
 	// get data length
 	dataLengthB := make([]byte, 2)
 	_, err := file.Read(dataLengthB)
@@ -82,11 +82,11 @@ func parseAPP0(file *os.File, imgData *image_data.ImageData) error {
 	}
 	dataLength := int(binary.BigEndian.Uint16(dataLengthB)) - 2
 
-	// update main file reader
+	// update main file app1Reader
 	buf := make([]byte, dataLength)
 	_, err = file.Read(buf)
 
-	// create new reader
+	// create new app1Reader
 	segmentReader := bytes.NewReader(buf)
 
 	// check JFIF identifier
@@ -134,7 +134,7 @@ func parseAPP0(file *os.File, imgData *image_data.ImageData) error {
 	fmt.Printf("\n\n\nSpitting Data:%v%v%v%v%v%v%v%v\n\n\n", thumbnData, version, units, xDensity, yDensity, thumbnW, thumbnH, identifier)
 	// There can be other non standard data past this part
 	// I have not parsed it yet
-	// I have pre-read this data with the main file reader in order to continue
+	// I have pre-read this data with the main file app1Reader in order to continue
 
 	// TODO: Read non standard data
 	// TOOD: Save Data to an objetc
@@ -143,7 +143,7 @@ func parseAPP0(file *os.File, imgData *image_data.ImageData) error {
 }
 
 
-func parseAPP1(file *os.File, imgData *image_data.ImageData) error {
+func parseAPP1(file *os.File, imgData *metadata.ImageData) error {
 	// read payload size
 	buff := make([]byte, 2)
 	_, err := io.ReadFull(file, buff)
@@ -151,7 +151,7 @@ func parseAPP1(file *os.File, imgData *image_data.ImageData) error {
 		return err
 	}
 
-	// read entire APP1 and advance main file reader
+	// read entire APP1 and advance main file app1Reader
 	payloadSize := binary.BigEndian.Uint16(buff)
 	app1Data := make([]byte, payloadSize-2)
 	file.Read(app1Data)
@@ -204,51 +204,48 @@ func parseAPP1(file *os.File, imgData *image_data.ImageData) error {
 	if versionNumber != 42 {
 		return errors.New("invalid version number")
 	}
-	// update file reader to offset of the first IFD (Image File Directory)
+	// update file main reader to offset of the first IFD (Image File Directory)
 	ifdOffset := endian.Uint32(tiffHeader[4:8])
 	if _, err = file.Seek(int64(ifdOffset), io.SeekStart); err != nil {
 		return fmt.Errorf("failed to seek to offset %d: %v", ifdOffset, err)
 	}
-	err = parseIFD(app1Reader, tiffHeaderStart, image_data.IFDMAIN, endian)
+	err = parseIFD(app1Reader, tiffHeaderStart, metadata.IFDMAIN, endian)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func parseIFD(reader *bytes.Reader, tiffHeaderStart int64, ifdType image_data.IFDType, endian binary.ByteOrder) error {
+func parseIFD(app1Reader *bytes.Reader, tiffHeaderStart int64, ifdType metadata.IFDType, endian binary.ByteOrder) error {
 	// count of tags
 	tagInBytes:= make([]byte, 2)
-	_, err := reader.Read(tagInBytes)
+	_, err := app1Reader.Read(tagInBytes)
 	if err != nil {
 		return err
 	}
 	tagCount := int(endian.Uint16(tagInBytes))
 
 	for i := 0; i < tagCount; i++ {
-
-		tag := image_data.IFDTag{}
-
+		tag := metadata.IFDTag{}
 		// set id
 		idInBytes := make([]byte, 2)
-		_, err = reader.Read(idInBytes)
+		_, err = app1Reader.Read(idInBytes)
 		if err != nil {
 			return err
 		}
 		tag.Id = endian.Uint16(idInBytes)
 
 		// set tag name
-		tagName, err := image_data.GetNameFromID(endian.Uint16(idInBytes))
+		tagName, err := metadata.GetNameFromID(endian.Uint16(idInBytes))
 		tag.Name = tagName
 
 		// set data type
 		dataTypeB := make([]byte, 2)
-		_, err = reader.Read(dataTypeB)
+		_, err = app1Reader.Read(dataTypeB)
 		if err != nil {
 			return fmt.Errorf("Failed to read dataTypeB\n")
 		}
-
-		dataType, err := image_data.GetDataTypeFromBytes(dataTypeB, endian)
+		dataType, err := metadata.GetDataTypeFromBytes(dataTypeB, endian)
 		if err != nil {
 			return err
 		}
@@ -256,7 +253,7 @@ func parseIFD(reader *bytes.Reader, tiffHeaderStart int64, ifdType image_data.IF
 
 		// set count of data
 		countDataInBytes := make([]byte, 4)
-		_, err = reader.Read(countDataInBytes)
+		_, err = app1Reader.Read(countDataInBytes)
 		if err != nil {
 			return fmt.Errorf("Failed to read count buff\n")
 		}
@@ -270,26 +267,40 @@ func parseIFD(reader *bytes.Reader, tiffHeaderStart int64, ifdType image_data.IF
 		}
 		totalTagSize := dataTypeSize * int(tagCount)
 
-		if totalTagSize > 4 {
-			// next 4 bytes is a pointer to the data
-			//tag.Data = getDataFromPointer(offset)
-			fmt.Println("DATA OUTSIDE OF TAG DATA")
-			dataOffset := make([]byte, 4)
-			_, err = reader.Read(dataOffset)
-			if err != nil {
-				return fmt.Errorf("Error reading dataOffset")
+		dataOrOffset := make([]byte, 4)
+		_, err = app1Reader.Read(dataOrOffset)
 
+		if totalTagSize > 4 {
+			fmt.Printf("Data > 4 bytes")
+			// get offset and save current pos
+			offset := endian.Uint32(dataOrOffset)
+			currentPos, err := app1Reader.Seek(0, io.SeekCurrent)
+			if err != nil {
+				return fmt.Errorf("Failed to save current position\n")
 			}
-			fmt.Printf("dataOffset: %x\n", dataOffset)
+			_, err = app1Reader.Seek(int64(offset), io.SeekStart)
+			if err != nil {
+				return fmt.Errorf("Failed to seek to app1 data tag offset\n")
+			}
+			// Read the data in bytes
+			dataInBytes := make([]byte, totalTagSize)
+			_, err = app1Reader.Read(dataInBytes)
+			if err != nil {
+				fmt.Printf("total Tag size: %v\n", totalTagSize)
+				return fmt.Errorf("Failed to read dataInBytes\n")
+			}
+			// Parse data
+			// TODO
+			// Parse the data based on the data type. Probably set up a helper function
+			fmt.Printf("Parsing data at offset: ")
+			metadata.DecodeTagByteData(dataInBytes, endian)
+
+			// set reader back to original pos
+	 		app1Reader.Seek(currentPos, io.SeekStart)
 		} else {
 			// next 4 bytes holds data
-			fmt.Println("DATA INSIDE OF TAG DATA")
-			data := make([]byte, 4)
-			_, err = reader.Read(data)
-			if err != nil {
-				return err
-			}
-			tag.Data = data
+			fmt.Printf("Data < 4 bytes")
+			tag.Data = dataOrOffset
 		}
 
 		///////// DEBUG PRINTING ////////////
@@ -298,7 +309,7 @@ func parseIFD(reader *bytes.Reader, tiffHeaderStart int64, ifdType image_data.IF
 			return err
 		}
 
-		fmt.Printf("id: %v, name: %v, dataType: %v, dataValue: %s", tag.Id, tag.Name, dataTypeString, tag.Data)
+		fmt.Printf("id: %v, name: %v, dataType: %v, dataValue: %s\n", tag.Id, tag.Name, dataTypeString, tag.Data)
 		/////////END OF DEBUG////////////
 
 		// parse and set value
