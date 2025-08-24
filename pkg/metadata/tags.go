@@ -1,5 +1,16 @@
 package metadata
 
+import (
+	"fmt"
+)
+
+func GetNameFromID(id uint16) (string, error) {
+	if name, exists := ifdMainTagList[id]; exists {
+		return name, nil
+	}
+	return "", fmt.Errorf("No Tag ID found")
+}
+
 var ifdMainTagList = map[uint16]string {
 	// TIFF Baseline Tags (TIFF 6.0)
 	0x00FE: "New Subfile Type",
@@ -187,3 +198,4 @@ var ifdGPSTagList = map[uint16]string {
 	0x001D: "GPS Date Stamp",
 	0x001E: "GPS Differential",
 }
+

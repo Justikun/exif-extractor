@@ -1,8 +1,9 @@
 package metadata
 
 import (
-	"fmt"
 	"encoding/binary"
+	"fmt"
+	"strings"
 )
 
 type ImageData struct {
@@ -11,17 +12,17 @@ type ImageData struct {
 }
 
 type MetaData struct {
-	Tags		[]IFDTag
-	ExifTags	[]IFDTag
-	IntropTags	[]IFDTag
-	GPSTags		[]IFDTag
+	Tags		[]IFDtag
+	ExifTags	[]IFDtag
+	IntropTags	[]IFDtag
+	GPStags		[]IFDtag
 }
 
-type IFDTag struct {
-	Id			uint16
+type IFDtag struct {
+	ID			uint16
 	Name		string
 	DataType	DataType
-	Count		uint32
+	DataCount	uint32
 	Data		any
 }
 
@@ -30,22 +31,103 @@ type Rational struct {
 	Denominator uint32
 }
 
-type SRational struct {
+type Srational struct {
 	Numerator   int32
 	Denominator int32
 }
 
-type IFDType string
+type IFDtype string
 
 const (
-	IFDMAIN 		IFDType = "main"
-	IFDEXIF			IFDType = "exif"
-	IFDINTROP		IFDType = "introp"
-	IFDGPS			IFDType = "gps"
+	IFDMAIN 		IFDtype = "main"
+	IFDEXIF			IFDtype = "exif"
+	IFDINTROP		IFDtype = "introp"
+	IFDGPS			IFDtype = "gps"
 )
 
 type DataType uint16
 
+func (t IFDtag) DataString() (string) {
+	switch v := t.Data.(type) {
+	case string:
+		return v
+
+	// handle single numerical values
+	case uint8, uint16, uint32, uint64, int8, int16, int32, int64:
+		return fmt.Sprintf("%v", v)
+	case float32, float64:
+		return fmt.Sprintf("%v", v)
+
+	// Handle slices of numerical values
+	case []uint8:
+		return formatSlice("%v", v)
+	case []uint16:
+		return formatSlice("%v", v)
+	case []uint32:
+		return formatSlice("%v", v)
+	case []uint64:
+		return formatSlice("%v", v)
+	case []int8:
+		return formatSlice("%v", v)
+	case []int16:
+		return formatSlice("%v", v)
+	case []int32:
+		return formatSlice("%v", v)
+	case []int64:
+		return formatSlice("%v", v)
+	case []float32:
+		return formatSlice("%v", v)
+	case []float64:
+		return formatSlice("%v", v)
+
+	// Handle rationals
+	case Rational:
+		return fmt.Sprintf("%d/%d", v.Numerator, v.Denominator)
+	case Srational:
+		return fmt.Sprintf("%d/%d", v.Numerator, v.Denominator)
+	case []Rational:
+		return formatRationalSlice(v)
+	case []Srational:
+		return formatSRationalSlice(v)
+	default:
+		return fmt.Sprintf("%v", v)
+	}
+}
+
+////////////////////////////////////////
+// helper functions for reading tag data
+////////////////////////////////////////
+func formatSlice[T any](format string, slice []T) string {
+	if len(slice) == 0 { return "N/A" }
+
+	parts := make([]string, len(slice))
+
+	for i, v := range slice {
+		parts[i] = fmt.Sprintf(format, v)
+	}
+	return fmt.Sprintf("%s",strings.Join(parts, " "))
+}
+
+func formatRationalSlice(slice []Rational) string {
+	if len(slice) == 0 { return "N/A" }
+	parts := make([]string, len(slice))
+	for i, v := range slice {
+		parts[i] = fmt.Sprintf("%d/%d", v.Numerator, v.Denominator)
+	}
+	return fmt.Sprintf("%s", strings.Join(parts, " "))
+}
+
+func formatSRationalSlice(slice []Srational) string {
+	if len(slice) == 0 { return "N/A" }
+	parts := make([]string, len(slice))
+	for i, v := range slice {
+		parts[i] = fmt.Sprintf("%d/%d", v.Numerator, v.Denominator)
+	}
+	return fmt.Sprintf("%s", strings.Join(parts, " "))
+}
+
+
+////////////////////////////////////////
 const (
 	TypeByte      DataType = 1  // Unsigned 8-bit integer
 	TypeAscii     DataType = 2  // 8-bit ASCII character
@@ -128,59 +210,52 @@ func GetDataType(b []byte, byteOrder binary.ByteOrder) (DataType, error) {
 }
 
 var typeSize = map[DataType]int {
-	TypeByte:      1,
-	TypeAscii:     1,
-	TypeShort:     2,
-	TypeLong:      4,
-	TypeRational:  8,
-	TypeSByte:     1,
-	TypeUndefined: 1,
-	TypeSShort:    2,
-	TypeSLong:     4,
-	TypeSRational: 8,
-	TypeFloat:     4,
-	TypeDouble:    8,
+	TypeByte:      1, // 8 bit unsigned int (1 byte)
+	TypeAscii:     1, // 1 byte per char. null-terminated
+	TypeShort:     2, // Unsigned 16-bit int (2 byte)
+	TypeLong:      4, // Unsigned 32-bit int (4 bytes)
+	TypeRational:  8, // Two Long types. numerator(4 bytes), denominator(4 bytes)
+	TypeSByte:     1, // 8 bit signed in (1 byte)
+	TypeUndefined: 1, // Untyped 8-bit data (raw byte, may be binary or ascii)
+	TypeSShort:    2, // 16 bit signed int (2 bytes)
+	TypeSLong:     4, // 32 bit signed Int (4 bytes)
+	TypeSRational: 8, // Two SLong type. numerator(4 bytes), denominator(4 bytes)
+	TypeFloat:     4, // 32 bit IEEE floating point (4 bytes)
+	TypeDouble:    8, // 64 bit IEEE floating point (8 bytes)
 }
 
-func (dt DataType) GetDataTypeByteSize() (int, error) {
-	if size, ok := typeSize[dt]; ok {
-		return size, nil
-	}
-	return 0, fmt.Errorf("%x, DataType not found", dt)
-}
-
-func (dt DataType) GetDataTypeString() (string, error) {
+func (dt DataType) String() (string) {
 	switch DataType(dt) { // Cast the int to DataType for the switch
 	case TypeByte:
-		return "BYTE", nil
+		return "BYTE"
 	case TypeAscii:
-		return "ASCII", nil
+		return "ASCII"
 	case TypeShort:
-		return "SHORT", nil
+		return "SHORT"
 	case TypeLong:
-		return "LONG", nil
+		return "LONG"
 	case TypeRational:
-		return "RATIONAL", nil
+		return "RATIONAL"
 	case TypeSByte:
-		return "SBYTE", nil
+		return "SBYTE"
 	case TypeUndefined:
-		return "UNDEFINED", nil
+		return "UNDEFINED"
 	case TypeSShort:
-		return "SSHORT", nil
+		return "SSHORT"
 	case TypeSLong:
-		return "SLONG", nil
+		return "SLONG"
 	case TypeSRational:
-		return "SRATIONAL", nil
+		return "SRATIONAL"
 	case TypeFloat:
-		return "FLOAT", nil
+		return "FLOAT"
 	case TypeDouble:
-		return "DOUBLE", nil
+		return "DOUBLE"
 	default:
-		return "", fmt.Errorf("Failed to GetDataTypeString. Unknown data type value: %d", dt)
+		return ""
 	}
 }
 
-func (dt DataType) SizeInBytes() (int, error){
+func (dt DataType) ByteSize() (int, error){
 	switch dt {
 	case TypeByte, TypeAscii, TypeSByte, TypeUndefined:
 		return 1, nil
@@ -193,11 +268,4 @@ func (dt DataType) SizeInBytes() (int, error){
 	default:
 		return 0, fmt.Errorf("Unkown or invalid datatype for size calculation: %d", dt)
 	}
-}
-
-func GetNameFromID(id uint16) (string, error) {
-	if name, exists := ifdMainTagList[id]; exists {
-		return name, nil
-	}
-	return "", fmt.Errorf("No Tag ID found")
 }
