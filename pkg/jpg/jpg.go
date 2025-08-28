@@ -150,7 +150,7 @@ func ParseAPP1(file *os.File, imgData *metadata.ImageData) error {
 	if _, err = file.Seek(int64(ifdOffset), io.SeekStart); err != nil {
 		return fmt.Errorf("failed to seek to offset %d: %v", ifdOffset, err)
 	}
-	err = tiff.ParseIFD(br, tiffHeaderStart, metadata.IFDMAIN, endian)
+	err = tiff.ParseIFD(imgData, br, tiffHeaderStart, metadata.IFDMAIN, endian)
 	if err != nil {
 		return err
 	}

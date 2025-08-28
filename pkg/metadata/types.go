@@ -7,23 +7,23 @@ import (
 )
 
 type ImageData struct {
-	ImagePath	string
-	MetaData	MetaData
+	ImagePath string
+	MetaData  MetaData
 }
 
 type MetaData struct {
-	Tags		[]IFDtag
-	ExifTags	[]IFDtag
-	IntropTags	[]IFDtag
-	GPStags		[]IFDtag
+	MainTags   []IFDtag
+	ExifTags   []IFDtag
+	IntropTags []IFDtag
+	GPStags    []IFDtag
 }
 
 type IFDtag struct {
-	ID			uint16
-	Name		string
-	DataType	DataType
-	DataCount	uint32
-	Data		any
+	ID        uint16
+	Name      string
+	DataType  DataType
+	DataCount uint32
+	Data      any
 }
 
 type Rational struct {
@@ -39,15 +39,15 @@ type Srational struct {
 type IFDtype string
 
 const (
-	IFDMAIN 		IFDtype = "main"
-	IFDEXIF			IFDtype = "exif"
-	IFDINTROP		IFDtype = "introp"
-	IFDGPS			IFDtype = "gps"
+	IFDMAIN   IFDtype = "main"
+	IFDEXIF   IFDtype = "exif"
+	IFDINTROP IFDtype = "introp"
+	IFDGPS    IFDtype = "gps"
 )
 
 type DataType uint16
 
-func (t IFDtag) DataString() (string) {
+func (t IFDtag) DataString() string {
 	switch v := t.Data.(type) {
 	case string:
 		return v
@@ -94,22 +94,26 @@ func (t IFDtag) DataString() (string) {
 	}
 }
 
-////////////////////////////////////////
+// //////////////////////////////////////
 // helper functions for reading tag data
-////////////////////////////////////////
+// //////////////////////////////////////
 func formatSlice[T any](format string, slice []T) string {
-	if len(slice) == 0 { return "N/A" }
+	if len(slice) == 0 {
+		return "N/A"
+	}
 
 	parts := make([]string, len(slice))
 
 	for i, v := range slice {
 		parts[i] = fmt.Sprintf(format, v)
 	}
-	return fmt.Sprintf("%s",strings.Join(parts, " "))
+	return fmt.Sprintf("%s", strings.Join(parts, " "))
 }
 
 func formatRationalSlice(slice []Rational) string {
-	if len(slice) == 0 { return "N/A" }
+	if len(slice) == 0 {
+		return "N/A"
+	}
 	parts := make([]string, len(slice))
 	for i, v := range slice {
 		parts[i] = fmt.Sprintf("%d/%d", v.Numerator, v.Denominator)
@@ -118,7 +122,9 @@ func formatRationalSlice(slice []Rational) string {
 }
 
 func formatSRationalSlice(slice []Srational) string {
-	if len(slice) == 0 { return "N/A" }
+	if len(slice) == 0 {
+		return "N/A"
+	}
 	parts := make([]string, len(slice))
 	for i, v := range slice {
 		parts[i] = fmt.Sprintf("%d/%d", v.Numerator, v.Denominator)
@@ -126,8 +132,7 @@ func formatSRationalSlice(slice []Srational) string {
 	return fmt.Sprintf("%s", strings.Join(parts, " "))
 }
 
-
-////////////////////////////////////////
+// //////////////////////////////////////
 const (
 	TypeByte      DataType = 1  // Unsigned 8-bit integer
 	TypeAscii     DataType = 2  // 8-bit ASCII character
@@ -209,7 +214,7 @@ func GetDataType(b []byte, byteOrder binary.ByteOrder) (DataType, error) {
 	}
 }
 
-var typeSize = map[DataType]int {
+var typeSize = map[DataType]int{
 	TypeByte:      1, // 8 bit unsigned int (1 byte)
 	TypeAscii:     1, // 1 byte per char. null-terminated
 	TypeShort:     2, // Unsigned 16-bit int (2 byte)
@@ -224,7 +229,7 @@ var typeSize = map[DataType]int {
 	TypeDouble:    8, // 64 bit IEEE floating point (8 bytes)
 }
 
-func (dt DataType) String() (string) {
+func (dt DataType) String() string {
 	switch DataType(dt) { // Cast the int to DataType for the switch
 	case TypeByte:
 		return "BYTE"
@@ -255,7 +260,7 @@ func (dt DataType) String() (string) {
 	}
 }
 
-func (dt DataType) ByteSize() (int, error){
+func (dt DataType) ByteSize() (int, error) {
 	switch dt {
 	case TypeByte, TypeAscii, TypeSByte, TypeUndefined:
 		return 1, nil

@@ -8,9 +8,8 @@ import (
 	"github.com/justikun/metadata-viewer/pkg/metadata"
 )
 
-func ParseIFD(br *metadata.BinaryReader, tiffHeaderStart int64, ifdType metadata.IFDtype, endian binary.ByteOrder) error {
-	// wrap reader in custom reader
-	// TODO
+func ParseIFD(imgData *metadata.ImageData, br *metadata.BinaryReader, tiffHeaderStart int64, ifdType metadata.IFDtype, endian binary.ByteOrder) error {
+	ifdTags := []metadata.IFDtag{}
 
 	// count of tags
 	tagInBytes, err := br.ReadBytes(2)
@@ -65,7 +64,6 @@ func ParseIFD(br *metadata.BinaryReader, tiffHeaderStart int64, ifdType metadata
 		}
 
 		if totalTagDataSize > 4 {
-			fmt.Printf("Data > 4 bytes\n")
 			// set absolute data offset
 			offset := endian.Uint32(dataOrOffset)
 			absDataOffset := tiffHeaderStart + int64(offset)
@@ -90,7 +88,6 @@ func ParseIFD(br *metadata.BinaryReader, tiffHeaderStart int64, ifdType metadata
 
 			// decode data
 			dataValue, err := metadata.DecodeTagData(dataInBytes, dataType, dataCount, endian)
-			//fmt.Printf("DV Bytes: %x\n", dataValue)
 			tag.Data = dataValue
 
 			fmt.Println("Name: ", tag.Name)
@@ -101,8 +98,8 @@ func ParseIFD(br *metadata.BinaryReader, tiffHeaderStart int64, ifdType metadata
 			if err != nil {
 				return fmt.Errorf("Failed to seek to app1 data tag offset\n")
 			}
+			ifdTags = append(ifdTags, tag)
 		} else {
-			fmt.Printf("Data < 4 bytes")
 			actualInLineData := dataOrOffset[:totalTagDataSize]
 
 			// Decode in line data
@@ -111,8 +108,21 @@ func ParseIFD(br *metadata.BinaryReader, tiffHeaderStart int64, ifdType metadata
 				return fmt.Errorf("failed to decode inline data for tag 0x%04X: %w", tag.ID, err)
 			}
 			tag.Data = decodedData
+			ifdTags = append(ifdTags, tag)
 		}
 	}
-	print("END OF PARSE ID")
+
+	switch ifdType {
+	case metadata.IFDMAIN:
+		imgData.MetaData.MainTags = ifdTags
+	case metadata.IFDEXIF:
+		imgData.MetaData.ExifTags = ifdTags
+	case metadata.IFDINTROP:
+		imgData.MetaData.IntropTags = ifdTags
+	case metadata.IFDGPS:
+		imgData.MetaData.GPStags = ifdTags
+
+	}
+	fmt.Println("END OF PARSE IFD")
 	return nil
 }

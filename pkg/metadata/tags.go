@@ -11,8 +11,8 @@ func GetNameFromID(id uint16) (string, error) {
 	return "", fmt.Errorf("No Tag ID found")
 }
 
-var ifdMainTagList = map[uint16]string {
-	// TIFF Baseline Tags (TIFF 6.0)
+var ifdMainTagList = map[uint16]string{
+	// TIFF Baseline MainTags (TIFF 6.0)
 	0x00FE: "New Subfile Type",
 	0x00FF: "Subfile Type",
 	0x0100: "Image Width",
@@ -45,7 +45,7 @@ var ifdMainTagList = map[uint16]string {
 	0x013B: "Artist",
 	0x013E: "White Point",
 	0x013F: "Primary Chromaticities",
-	// TIFF Extended Tags
+	// TIFF Extended MainTags
 	0x011D: "Page Name",
 	0x011E: "X Position",
 	0x011F: "Y Position",
@@ -87,7 +87,7 @@ var ifdMainTagList = map[uint16]string {
 	0x0212: "Y Cb Cr Sub Sampling",
 	0x0213: "Y Cb Cr Positioning",
 	0x0214: "Reference Black White",
-	// Other Common Tags
+	// Other Common MainTags
 	0x8769: "Exif IFD Pointer",
 	0x8825: "GPS Info IFD Pointer",
 	0x02BC: "Application Notes", // XMP metadata
@@ -95,7 +95,7 @@ var ifdMainTagList = map[uint16]string {
 	0x8773: "ICC Profile",
 }
 
-var ifdExifTagList = map[uint16]string {
+var ifdExifTagList = map[uint16]string{
 	0x8298: "Copyright",
 	0x829A: "Exposure Time",
 	0x829D: "F Number",
@@ -157,7 +157,7 @@ var ifdExifTagList = map[uint16]string {
 	0xA420: "Image Unique ID",
 }
 
-var ifdIntropTagList = map[uint16]string {
+var ifdIntropTagList = map[uint16]string{
 	0x0001: "Interop Index",
 	0x0002: "Interop Version",
 	0x1000: "Related Image File Format",
@@ -165,7 +165,7 @@ var ifdIntropTagList = map[uint16]string {
 	0x1002: "Related Image Length",
 }
 
-var ifdGPSTagList = map[uint16]string {
+var ifdGPSTagList = map[uint16]string{
 	0x0000: "GPS Version ID",
 	0x0001: "GPS Latitude Ref",
 	0x0002: "GPS Latitude",
@@ -198,4 +198,3 @@ var ifdGPSTagList = map[uint16]string {
 	0x001D: "GPS Date Stamp",
 	0x001E: "GPS Differential",
 }
-
