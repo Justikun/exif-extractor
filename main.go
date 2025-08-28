@@ -31,6 +31,7 @@ func main() {
 
 func parseImgData(imgPath string) (metadata.ImageData, error) {
 	imgData := metadata.ImageData{}
+	imgData.ImagePath = imgPath
 
 	file, err := os.Open(imgPath)
 	if err != nil {
@@ -65,7 +66,7 @@ func parseImgData(imgPath string) (metadata.ImageData, error) {
 				log.Fatal(err)
 			}
 			println("APP1 DONE")
-			println("Data: ", imgData.MetaData.Tags)
+			helperPrintData(imgData)
 			println("--------------")
 
 			return imgData, nil
@@ -108,4 +109,13 @@ func GetImageFiles(dirPath string) ([]metadata.ImageData, error) {
 		}
 	}
 	return imageFiles, nil
+}
+
+func helperPrintData(data metadata.ImageData) {
+
+	fmt.Println("Image: ", data.ImagePath)
+	fmt.Println("MetaData: ", data.MetaData)
+
+	fmt.Println("")
+	fmt.Println("-----END OF Print Data-----")
 }
