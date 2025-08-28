@@ -1,3 +1,11 @@
-test-photos/
-.DS_Store
+/test-photos/
+/bin/
+.test
+.out
 
+# IntelliJ
+.idea
+
+# Operating System
+.DS_Store
+Thumbs.db
