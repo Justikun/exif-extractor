@@ -59,11 +59,14 @@ func parseImgData(imgPath string) (metadata.ImageData, error) {
 		case 0xE0: // APP0 - jfif marker
 			println("case app0:")
 			jpg.ParseAPP0(file, &imgData)
+			if err != nil {
+				fmt.Printf("Failed to parse APPO at %s\n", imgPath)
+			}
 		case 0xE1: // APP1
 			println("case app1:")
 			err := jpg.ParseAPP1(file, &imgData)
 			if err != nil {
-				log.Fatal(err)
+				fmt.Printf("Failed to parse APP1 at %s\n", imgPath)
 			}
 			println("APP1 DONE")
 			helperPrintData(imgData)
@@ -114,7 +117,6 @@ func GetImageFiles(dirPath string) ([]metadata.ImageData, error) {
 func helperPrintData(data metadata.ImageData) {
 
 	fmt.Println("Image: ", data.ImagePath)
-	fmt.Println("MetaData: ", data.MetaData)
 
 	fmt.Println("")
 	fmt.Println("-----END OF Print Data-----")
